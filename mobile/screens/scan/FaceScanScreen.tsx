@@ -6,6 +6,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../theme/dark';
 import AnalyzingScreen from './AnalyzingScreen';
+import { FaceMeshCameraView } from '../../components/FaceMeshCameraView';
 
 const VIDEO_DURATION = 15;
 
@@ -210,7 +211,17 @@ export default function FaceScanScreen() {
                 )}
             </View>
 
-            {Platform.OS === 'web' ? <WebCameraView onReady={handleCameraReady} /> : <NativeCameraWrapper cameraApiRef={cameraApiRef} onReady={() => setCameraReady(true)} />}
+            {Platform.OS === 'web' ? (
+                <WebCameraView onReady={handleCameraReady} />
+            ) : (
+                <View style={styles.cameraContainer}>
+                    <FaceMeshCameraView 
+                        ref={cameraApiRef}
+                        style={styles.camera} 
+                        onLayout={() => setCameraReady(true)}
+                    />
+                </View>
+            )}
 
             <View style={styles.controls}>
                 {!cameraReady ? (
@@ -225,6 +236,11 @@ export default function FaceScanScreen() {
                     </TouchableOpacity>
                 )}
             </View>
+
+            <View style={styles.meshToggleContainer}>
+                {/* Mesh is now enabled by default */}
+            </View>
+
             <Text style={styles.hint}>
                 {!cameraReady ? 'Initializing camera...' : !isRecording ? 'Tap to start 15s scan' : 'Keep your face within the guide'}
             </Text>
@@ -232,45 +248,7 @@ export default function FaceScanScreen() {
     );
 }
 
-function NativeCameraWrapper({ cameraApiRef, onReady }: any) {
-    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-    const localRef = useRef<any>(null);
-    const onReadyCalledRef = useRef(false);
 
-    useEffect(() => {
-        (async () => {
-            const { Camera } = require('expo-camera');
-            const { status } = await Camera.requestCameraPermissionsAsync();
-            const { status: audioStatus } = await Camera.requestMicrophonePermissionsAsync();
-            const granted = status === 'granted' && audioStatus === 'granted';
-            setHasPermission(granted);
-            if (granted) {
-                cameraApiRef.current = {
-                    recordAsync: (opts: any) => localRef.current?.recordAsync(opts),
-                    stopRecording: () => localRef.current?.stopRecording(),
-                };
-            }
-        })();
-    }, []);
-
-    const handleCameraReady = useCallback(() => {
-        if (!onReadyCalledRef.current) {
-            onReadyCalledRef.current = true;
-            onReady();
-        }
-    }, [onReady]);
-
-    if (hasPermission === null) return <View style={styles.cameraContainer}><Text style={styles.centerText}>Requesting permissions...</Text></View>;
-    if (hasPermission === false) return <View style={styles.cameraContainer}><Text style={styles.centerText}>Camera and Audio permissions required</Text></View>;
-    const { CameraView } = require('expo-camera');
-    return (
-        <View style={styles.cameraContainer}>
-            <CameraView ref={localRef} style={styles.camera} facing="front" mode="video" onCameraReady={handleCameraReady}>
-                <View style={styles.overlayAbsolute}><View style={styles.faceGuide} /></View>
-            </CameraView>
-        </View>
-    );
-}
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -288,6 +266,9 @@ const styles = StyleSheet.create({
     recordButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.card, justifyContent: 'center', alignItems: 'center', ...shadows.md },
     recordButtonInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.error, ...shadows.sm },
     stopButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.card, justifyContent: 'center', alignItems: 'center', ...shadows.md },
+    meshToggleContainer: { width: '100%', alignItems: 'center', paddingBottom: spacing.lg },
+    meshToggleButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: borderRadius.full, ...shadows.md },
+    meshToggleText: { fontSize: 13, fontWeight: '600', color: colors.buttonText, marginLeft: spacing.sm },
     hint: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.xl },
     centerText: { fontSize: 14, textAlign: 'center', color: colors.buttonText, padding: 20 },
     cameraErrorContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10, backgroundColor: 'rgba(0,0,0,0.7)' },
